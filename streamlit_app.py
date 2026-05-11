@@ -17,10 +17,21 @@ supabase = create_client(url, key)
 st.title("Sistema de Login")
 
 # -----------------------------------
-# SE USUÁRIO NÃO ESTIVER LOGADO
+# USUÁRIO NÃO LOGADO
 # -----------------------------------
 
 if "usuario_id" not in st.session_state:
+
+    modo = st.radio(
+        "Escolha uma opção",
+        ["Login", "Cadastro"]
+    )
+
+    # INPUTS
+
+    if modo == "Cadastro":
+
+        nome = st.text_input("Nome")
 
     email = st.text_input("E-mail")
 
@@ -29,67 +40,107 @@ if "usuario_id" not in st.session_state:
         type="password"
     )
 
-    col1, col2 = st.columns(2)
-
+    # -----------------------------------
     # CADASTRO
-    with col1:
+    # -----------------------------------
+
+    if modo == "Cadastro":
 
         if st.button("Cadastrar"):
 
             resposta = supabase.auth.sign_up({
+
                 "email": email,
-                "password": senha
+
+                "password": senha,
+
+                "options": {
+
+                    "data": {
+
+                        "nome": nome
+
+                    }
+
+                }
+
             })
 
             st.success("Usuário cadastrado!")
 
+    # -----------------------------------
     # LOGIN
-    with col2:
+    # -----------------------------------
+
+    if modo == "Login":
 
         if st.button("Login"):
 
             resposta = supabase.auth.sign_in_with_password({
+
                 "email": email,
+
                 "password": senha
+
             })
 
-            st.session_state["usuario_id"] = resposta.user.id
+            usuario_id = resposta.user.id
 
-            st.session_state["usuario_email"] = resposta.user.email
+            usuario_email = resposta.user.email
+
+            # BUSCA PROFILE
+
+            dados_profile = supabase.table("profiles") \
+                .select("*") \
+                .eq("id", usuario_id) \
+                .execute()
+
+            profile = dados_profile.data[0]
+
+            # SALVA DADOS NA SESSÃO
+
+            st.session_state["usuario_id"] = usuario_id
+
+            st.session_state["usuario_email"] = usuario_email
+
+            st.session_state["usuario_nome"] = profile["nome"]
+
+            st.session_state["tipo_usuario"] = profile["tipo"]
 
             st.rerun()
 
 # -----------------------------------
-# SE USUÁRIO ESTIVER LOGADO
+# USUÁRIO LOGADO
 # -----------------------------------
 
 else:
+
+    usuario_nome = st.session_state["usuario_nome"]
 
     usuario_id = st.session_state["usuario_id"]
 
     usuario_email = st.session_state["usuario_email"]
 
-    st.success("Login realizado!")
+    tipo_usuario = st.session_state["tipo_usuario"]
+
+    # MENSAGEM LOGIN
+
+    st.success(
+        f"Login realizado! Seja bem-vindo, {usuario_nome}"
+    )
+
+    # DADOS
 
     st.write("ID:", usuario_id)
 
     st.write("EMAIL:", usuario_email)
 
-    # BUSCA PROFILE
-    dados_profile = supabase.table("profiles") \
-        .select("*") \
-        .eq("id", usuario_id) \
-        .execute()
-
-    st.write(dados_profile.data)
-
-    profile = dados_profile.data[0]
-
-    tipo_usuario = profile["tipo"]
-
     st.write("TIPO DE USUÁRIO:", tipo_usuario)
 
+    # -----------------------------------
     # ADMIN
+    # -----------------------------------
+
     if tipo_usuario == "Admin":
 
         st.write("Bem-vindo, admin!")
@@ -97,14 +148,21 @@ else:
         st.header("Área de Administração")
 
         st.button("Criar Obra")
+
         st.button("Editar Obra")
+
         st.button("Excluir Obra")
 
-    # PADRÃO
+    # -----------------------------------
+    # USUÁRIO PADRÃO
+    # -----------------------------------
+
     else:
 
         st.write("Bem-vindo, usuário!")
 
         st.header("Área do Usuário")
 
-        st.write("Aqui você pode visualizar as obras disponíveis.")
+        st.write(
+            "Aqui você pode visualizar as obras disponíveis."
+        )

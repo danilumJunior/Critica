@@ -1,5 +1,8 @@
 import streamlit as st
 from supabase import create_client
+import re
+import time
+
 
 # -----------------------------------
 # CONEXÃO SUPABASE
@@ -143,26 +146,77 @@ else:
 
     if tipo_usuario == "Admin":
 
-        st.write("Bem-vindo, admin!")
+            st.header("Área de Administração")
+            titulo = st.text_input("Título")
+            descricao = st.text_area("Descrição")
+            imagem = st.file_uploader("Imagem da obra",
+                type = ["jpg", "jpeg", "png"])
+            nota = st.number_input("Nota", min_value=0.0,
+            max_value=5.0,
+            value=5.0,
+            step=0.5)
+            
+            if st.button("Criar Obra"):
+                if imagem is not None:
+                    try:
+                        nome_arquivo = imagem.name
+                        nome_limpo = re.sub(r'[^a-zA-Z0-9.-]', '_', nome_arquivo)
 
-        st.header("Área de Administração")
 
-        st.button("Criar Obra")
+                        
+                        caminho_final = f"capas/{nome_limpo}" 
 
-        st.button("Editar Obra")
 
-        st.button("Excluir Obra")
+                        supabase.storage.from_("obras").upload(
+                            path=caminho_final, 
+                            file=imagem.getvalue(),
+                            file_options={"content-type": imagem.type,
+                            "upsert": "true"}
+                        )
 
+                        
+                        url_publica = supabase.storage.from_("obras").get_public_url(caminho_final)
+
+                        supabase.table("obras").insert({
+                            "titulo": titulo,
+                            "descricao": descricao,
+                            "nota": nota,
+                            "usuario_id": usuario_id,
+                            "nome_usuario": usuario_nome,
+                            "imagem_url": url_publica
+                        }).execute()
+
+                        st.success("Obra criada com sucesso!")
+                        time.sleep(1)
+                        st.rerun()
+                        
+                    except Exception as e:
+                        st.error(f"Erro no upload: {e}")
+       
+                    
     # -----------------------------------
     # USUÁRIO PADRÃO
     # -----------------------------------
 
     else:
 
-        st.write("Bem-vindo, usuário!")
+        st.header("Obras Disponíveis")
 
-        st.header("Área do Usuário")
+        obras = supabase.table("obras").select("*").execute()
 
-        st.write(
-            "Aqui você pode visualizar as obras disponíveis."
-        )
+        if obras.data:
+            for obra in obras.data:
+                with st.container(border=True):
+                    col1, col2 = st.columns([1, 2])
+
+                    with col1:
+                        st.image(obra["imagem_url"])
+                    
+                    with col2:
+                        st.subheader(obra["titulo"])
+                    st.write(f"**Nota:** {obra['nota']} ⭐")
+                    st.write(f"**Postado por:** {obra['nome_usuario']}")
+                    st.write(obra["descricao"])
+        else:
+            st.info("Nenhuma obra cadastrada ainda.")
+        

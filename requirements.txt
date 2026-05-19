@@ -1,4 +1,2 @@
 streamlit
 supabase
-re
-time

@@ -107,17 +107,6 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Configurar secrets
-
-Crie o arquivo `.streamlit/secrets.toml`:
-
-```toml
-SUPABASE_URL = "https://seu-projeto.supabase.co"
-SUPABASE_ANON_KEY = "sua-chave-anon"
-```
-
-> **Importante:** não commite credenciais reais. O arquivo já está no `.gitignore`. Em deploy (Streamlit Cloud, etc.), use os secrets da plataforma.
-
 ### 5. Subir o app
 
 ```bash
@@ -125,10 +114,6 @@ streamlit run streamlit_app.py
 ```
 
 O navegador abrirá em `http://localhost:8501` (porta padrão do Streamlit).
-
-### Primeiro administrador
-
-Após o primeiro cadastro, defina manualmente no Supabase (Table Editor → `profiles`) o campo `tipo` como `Admin` para o seu usuário. Depois disso, o menu de administração ficará disponível no app.
 
 ## Configuração no Supabase
 
@@ -142,35 +127,6 @@ Vinculada ao usuário autenticado (`auth.users`).
 | `nome` | `text` | Nome exibido no app |
 | `tipo` | `text` | `Admin` ou `Usuario` |
 
-```sql
-create table public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  nome text not null,
-  tipo text not null default 'Usuario',
-  created_at timestamptz default now()
-);
-
-create or replace function public.handle_new_user()
-returns trigger
-language plpgsql
-security definer
-as $$
-begin
-  insert into public.profiles (id, nome, tipo)
-  values (
-    new.id,
-    coalesce(new.raw_user_meta_data->>'nome', 'Usuario'),
-    'Usuario'
-  );
-  return new;
-end;
-$$;
-
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure public.handle_new_user();
-```
-
 ### Tabela `obras`
 
 | Campo | Tipo | Descrição |
@@ -182,27 +138,6 @@ create trigger on_auth_user_created
 | `imagem_url` | `text` | URL pública da capa |
 | `usuario_id` | `uuid` | Quem publicou |
 | `nome_usuario` | `text` | Nome do autor |
-
-```sql
-create table public.obras (
-  id uuid primary key default gen_random_uuid(),
-  titulo text not null,
-  descricao text,
-  nota numeric not null check (nota >= 0 and nota <= 5),
-  imagem_url text,
-  usuario_id uuid references auth.users(id),
-  nome_usuario text,
-  created_at timestamptz default now()
-);
-```
-
-### Storage
-
-1. Crie um bucket público chamado **`obras`**
-2. As capas são salvas em `capas/<nome-do-arquivo>`
-3. Configure políticas de leitura/escrita para usuários autenticados (e RLS nas tabelas, se for usar em produção)
-
-Ao excluir ou substituir uma obra, o app remove o arquivo antigo em `capas/` quando a URL segue o padrão `.../object/public/obras/capas/...`.
 
 ## Fluxo da aplicação
 
@@ -234,26 +169,6 @@ flowchart TD
 | `tipo_usuario` | `Admin` ou `Usuario` |
 | `pagina_admin` | Página ativa do painel admin |
 
-## Deploy (Streamlit Cloud)
-
-1. Faça push do repositório para o GitHub (sem `secrets.toml`)
-2. Em [share.streamlit.io](https://share.streamlit.io/), conecte o repositório
-3. Defina o arquivo principal: `streamlit_app.py`
-4. Em **Settings → Secrets**, adicione:
-
-```toml
-SUPABASE_URL = "..."
-SUPABASE_ANON_KEY = "..."
-```
-
-## Segurança e produção
-
-Este projeto é adequado para estudo e protótipos. Para uso em produção, recomenda-se:
-
-- Habilitar **Row Level Security (RLS)** em `profiles` e `obras`
-- Políticas no Storage restritas a usuários autenticados
-- Revisar quem pode alterar `tipo` em `profiles` (hoje depende das políticas do Supabase)
-- Confirmar e-mail no Auth, se necessário
 
 ## Roadmap
 
@@ -261,7 +176,3 @@ Este projeto é adequado para estudo e protótipos. Para uso em produção, reco
 - [ ] RLS e políticas documentadas no repositório
 - [ ] Testes automatizados
 - [ ] Temas e layout customizado
-
-## Licença
-
-Projeto em desenvolvimento. Defina a licença desejada (MIT, Apache 2.0, etc.) antes de publicar como open source.

@@ -107,7 +107,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 5. Subir o app
+### 4. Subir o app
 
 ```bash
 streamlit run streamlit_app.py

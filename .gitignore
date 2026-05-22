@@ -23,3 +23,6 @@ rad.json
 TestResults.xml
 venv/
 .streamlit/secrets.toml
+
+__pycache__/
+*.pyc
